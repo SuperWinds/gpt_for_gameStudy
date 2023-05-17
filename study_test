@@ -1,0 +1,206 @@
+#import "CAFlashPetsShopView.h"
+
+@interface CAFlashPetsShopView()
+
+@property (nonatomic, retain) PALibrary *library;
+@property (nonatomic, retain) PAMovieClip *list_anchor;
+@property (nonatomic, retain) NSDictionary *eggDatas;
+@property (nonatomic, retain) NSDictionary *iconParam;
+@property (nonatomic, assign) BOOL initial;
+@property (nonatomic, retain) PAMovieClip * popup_pet_info;
+@end
+
+
+@implementation CAFlashPetsShopView
+
+- (id)initWithTarget:(id)target andSelector:(SEL)selector
+{
+    NSString* library = [NSString stringWithFormat:@"%@fla_test.xml", CA_IPHONE_GRAPHICS_URL];
+    NSString* linkage = @"pets_list";
+    
+    self = [super initWithLibraryName:library andLinkage:linkage andParams:nil ];
+    
+    if (self) {
+        self.initial = TRUE;
+        self.library = library;
+        [CANotificationCenter addObserver:self withSelector:@selector(gotFlashPetEggDetail:) forKey:kPetEggUpdateNotification];
+    }
+    return self;
+}
+
+-(void) prepScene:(NSDictionary *)params {
+    printf("prepScenes.........");
+    NSLog(@"DATA: %@", params);
+    [self prepScene:params withInitialArgs:@"action=action_test" andLoadingText:@"Loading"];
+    
+}
+-(void) configure
+{
+    [super configure];
+    if(self.dataDictionary != nil  && ([self getMovie] != nil) && [[CCDirector sharedDirector] view] != nil&& self.initial == TRUE) {
+        self.initial == FALSE;
+        [self configureView];
+    }
+
+}
+
+
+-(void) configureView
+{
+    self.list_anchor = [self.mV getChildByName:@"pet_item_anchor"];
+    [self.list_anchor removeAllChildren];
+    self.eggDatas = [self.dataDictionary objectForKey:@"pet_eggs"];
+    NSArray *itemArray = [self.eggDatas objectForKey:@"order"];
+    NSInteger petsCount = [itemArray count];
+    
+    float height =0.f;
+    float weight =2.f;
+    for (NSUInteger i=0; i<petsCount; i++)
+    {
+        NSString *cur_item = [itemArray objectAtIndex: i];
+    
+        [self initPetShopItem:cur_item:weight];
+        
+        weight += 120.f;
+    }
+    
+
+    //init bg img
+    NSDictionary* bfParams = [NSDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[NSNumber numberWithInt:315], [NSNumber numberWithInt:207], nil] forKeys:[NSArray arrayWithObjects:@"width", @"height", nil]];
+    self.iconParam = [NSDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[NSNumber numberWithInt:115], [NSNumber numberWithInt:115], nil] forKeys:[NSArray arrayWithObjects:@"width", @"height", nil]];
+   
+    //init rule
+    PALabel *rule_txt = [self.mV getChildByName:@"info_txt"];
+    rule_txt.string =  [self.dataDictionary objectForKey:@"rule_string"];
+    
+    PALabel *fp_txt = [self.mV getChildByName:@"fp_txt"];
+    NSNumber *fp_num = [self.dataDictionary objectForKey:@"own_fp"];
+    fp_txt.string = [NSString stringWithFormat:@"%@",fp_num];
+    
+    PAMovieClip* botNavBar = [self getAssetForLinkName:@"bot_nav_bar_join"];
+
+    //init Leave Button
+    [[botNavBar getChildByName:@"btn_01"] attachEventListener:ON_CLICK withTarget:self andSelector:@"leaveBtnClicked:withParams:" andParams:nil];
+
+    NSMutableDictionary *persistentBottomNavDict = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                                    botNavBar, @"customBottomNav", @"bot_nav_bar_boss_join", @"navName", nil];
+
+    [CANotificationCenter postNotification:kCustomPersistentBottomNavNotification withParams:persistentBottomNavDict];
+    
+    
+    NSDictionary *pageNameDict = [NSDictionary dictionaryWithObjectsAndKeys:@"ORACLE PET EGGS", @"name", nil];
+    [CANotificationCenter postNotification:kHeaderViewPageNameNotification withParams:pageNameDict];
+    [self.mV updateScrollPaneContentSize:TRUE];
+    [self.mV forceScrollContentSize:CGSizeMake(320.f, weight+218.f) andGotoOrigin:TRUE];
+}
+
+
+-(void)initPetShopItem:(NSString*)egg_index:(float)height
+{
+ 
+    PALibrary *library = [self getMovie].library;
+    PALibraryDefinition* petClipDefinition = [library definitionForLinkName:@"plank_pet"];
+    
+    NSDictionary *item_data = [self.eggDatas objectForKey:egg_index];
+    
+    if (petClipDefinition ==nil) {
+        //[self closePopup];
+        return;
+    }
+    
+    PAMovieClip* petClip = [[[PAMovieClip alloc] initWithDefinition:petClipDefinition forLibrary:library]autorelease];
+    petClip.position = ccp(0.f, -height);
+    
+    NSNumber *eggid = [item_data objectForKey:@"item_id"];
+        
+//init name
+    PALabel *name_label = [petClip getChildByName:@"name_txt"];
+    NSNumber *pur_num = [item_data objectForKey:@"purchase_num"];
+    NSNumber *lim_num = [item_data objectForKey:@"limit_num"];
+    
+    NSString *lim_str = [NSString stringWithFormat:@"(%@/%@)",pur_num,lim_num];
+    name_label.string = [NSString stringWithFormat:@"%@%@",[item_data objectForKey:@"name"],lim_str];
+    
+//init info
+    PALabel *info_label = [petClip getChildByName:@"info_txt"];
+    info_label.string = [item_data objectForKey:@"ios_list_string"];
+    
+//init icon
+    PAMovieClip *anchor = [petClip getChildByName:@"icon_anchor"];
+    [anchor removeAllChildrenWithCleanup:TRUE];
+    NSURL *iconUrl = [NSURL URLWithString:[NSString stringWithFormat:
+                                        [item_data objectForKey:@"image"]]];
+    PASprite *iconImage = [PASprite spriteWithURL:iconUrl andParameters:self.iconParam];
+    iconImage.position = CGPointMake(0,0);
+    [anchor addChild:iconImage withName:@"icon" z:-1];
+    [anchor attachEventListener:ON_CLICK withTarget:self andSelector:@"showPetInfo:withParams:" andParams:[NSString stringWithFormat:@"%@",eggid]];
+     
+    
+//init buy button
+    PAMovieClip *buy_btn = [petClip getChildByName:@"buy_btn"];
+    
+    PALabel  *price_label = [buy_btn getChildByName:@"txt"];
+    NSNumber *price = [item_data objectForKey:@"cost"];
+    price_label.string = [NSString stringWithFormat:@"%@",price];
+    
+
+    [buy_btn attachEventListener:ON_CLICK withTarget:self andSelector:@"buyPetEgg:withParams:" andParams:[NSString stringWithFormat:@"%@",eggid]];
+     
+    
+    [self.list_anchor addChild:petClip withName:egg_index];
+   // [self.list_anchor forceScrollContentSize:CGSizeMake(320.f, height) andGotoOrigin:NO];
+}
+
+
+-(void) buyPetEgg:(PAMovieClip*)sender withParams:(NSString*)params {
+   [CAJsonResponder SendRequest:[NSString stringWithFormat:@"action=action=action_test&item_id=%@",params] andLoadingTxt:@"Loading"];
+}
+
+-(void) showPetInfo:(PAMovieClip*)sender withParams:(NSString*)params {
+   [CAJsonResponder SendRequest:[NSString stringWithFormat:@"action=show_oracle_egaction=action_testg_info&item_id=%@",params] andLoadingTxt:@"Loading"];
+}
+
+-(void)showPetPopup:(NSDictionary *) dictionary{
+    self.popup_pet_info = [self getAssetForLinkName:@"popup_item_info"];
+    self.popup_pet_info.position  = CGPointMake(0, -90);
+    PAMovieClip * close_btn = [self.popup_pet_info getChildByName:@"back_btn"];
+    PALabel * attack_txt = [self.popup_pet_info getChildByName:@"attack_txt"];
+    PALabel * title_txt = [self.popup_pet_info getChildByName:@"title_txt"];
+    PALabel * def_txt = [self.popup_pet_info getChildByName:@"defense_txt"];
+    PALabel * ability_txt = [self.popup_pet_info getChildByName:@"special_abilities_txt"];
+    PALabel * des_txt = [self.popup_pet_info getChildByName:@"description_txt"];
+    PAMovieClip* image_holder = [self.popup_pet_info getChildByName:@"image_holder"];
+    
+    //init img
+    NSString* image = [dictionary objectForKey:@"image"];
+    [[FlashFillerUtil sharedFlashFillerUtil] fillInMCwithImage:image_holder img:image width:80.0f height:80.0f grayscale:FALSE forceReloadImage:FALSE];
+    //init label
+    ability_txt.string = [dictionary valueForKey:@"abilities"];
+    des_txt.string = [dictionary valueForKey:@"description"];
+    
+    NSNumber *attack = [dictionary objectForKey:@"attack"];
+    attack_txt.string = [NSString stringWithFormat:@"%@",attack];
+    
+    NSNumber *defense = [dictionary objectForKey:@"defense"];
+    def_txt.string = [NSString stringWithFormat:@"%@",defense];
+     
+    title_txt.string = [dictionary objectForKey:@"name"];
+    //desc_txt.string = [dictionary valueForKey:@"message"];
+    [close_btn attachEventListener:ON_CLICK withTarget:self andSelector:@"closePopup" andParams:nil];
+
+    [[FlashPopupUtil sharedFlashPopupUtil] openPopupWithClip:self.popup_pet_info  isFullPage:true];
+}
+
+
+-(void) closePopup
+{
+    [CASoundPlayer playSoundEffect:@CLICK_SFX];
+    [[FlashPopupUtil sharedFlashPopupUtil] closePopup:YES];
+}
+
+
+-(void) onExit {
+    [super onExit];   
+}
+
+@end
