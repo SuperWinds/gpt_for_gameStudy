@@ -1,1 +1,1 @@
-# gpt_for_gameStudy
+# study_test
