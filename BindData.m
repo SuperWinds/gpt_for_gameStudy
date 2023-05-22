@@ -4,7 +4,7 @@
     self.list_anchor = [self.mV getChildByName:@"pet_item_anchor"];
     [self.list_anchor removeAllChildren];
 
-    //获取数据
+    //获取后端数据
     self.eggDatas = [self.dataDictionary objectForKey:@"pet_eggs"];
 
     //设置图片格式
