@@ -1,5 +1,7 @@
 -(void) configureView
 {
+    //self.Mv:父面板
+    //self.dataDictionary:初始化数据
     //初始化主面板
     self.list_anchor = [self.mV getChildByName:@"pet_item_anchor"];
     [self.list_anchor removeAllChildren];
